@@ -1,0 +1,138 @@
+---
+title: "Identificando Sinais Estacionários ou Periódicos"
+output:
+  prettydoc::html_pretty:
+    theme: leonids
+---
+
+> Sumário 
+
+* Instalação dos Pacotes e utilização das Bibliotecas
+* Definição do Diretório de Trabalho 
+* Criando uma Função
+* Gráfico Sinal de Aúdio
+* Autocorrelação
+* Estacionaridade
+  
+
+## Instalação dos Pacotes e utilização das Bibliotecas
+
+```{r message = FALSE, warning=FALSE}
+library(pracma) 
+library(tuneR)
+library(dygraphs)
+library(htmltools)
+library(moments)
+library(openxlsx)
+library(ggplot2)
+```
+
+## Definição do Diretório de Trabalho 
+
+Na strPath1, é definido o diretório do comando de aúdio número um e, em filenames, tem-se os nomes dos arquivos gravados e janelados no programa Audacity dentro da pasta "Um".
+
+```{r}
+strPath1 <- "C:/Users/samsung/Documents/Universidade/PET EngBiomédica/Workshop PET/Programas/DADOS/COMANDOS/G2/MEMBRO1/Um/"
+fileNames <- list("1.wav", "2.wav", "3.wav", "4.wav", "5.wav")
+```
+
+Abaixo, une-se o diretório aos nomes dos arquivos por meio da função as.list().
+
+```{r}
+fileNames1 <- as.list(paste(strPath1,fileNames, sep = "")) 
+```
+
+## Criando uma Função
+
+Um elemento que não pode faltar é o comando function ( ), que diz especifica a criação de uma função. Também, é necessário um nome, ele deve seguir às mesmas regras de nomeação de variáveis, como, por exemplo, não começar com números. Precisa-se definir os argumentos da função, eles são colocados dentro do comando function( ) separados por vírgula conforme exemplo a seguir.
+
+```{r}
+NomeFunc <- function (argumento1 , argumento2) {
+
+     Comandos
+
+}
+```
+
+## Gráfico Sinal de Aúdio 
+
+A função plotWAV carrega commandos como: a frequência de amostragem do aúdio, a resolução temporal, o sinal de aúdio gravado do lado direito e esquerdo do microfone, o tempo final do sinal e vetor tempo desse dataframe. Em dygraph, é plotado o sinal salvo em df e o título da cada sinal é extraído a partir da basename().
+
+```{r}
+#Função que plota sinais .wav
+plotWAV <- function(fname){
+  
+  originalSound <- readWave(fname)
+  fs = originalSound@samp.rate # sampling frequency in Hz
+  dt = 1/fs #resolution time in seconds
+  
+  yl <- originalSound@left
+  yr <- originalSound@right
+  
+  tf <- (length(yl)-1)*dt # tempo final em segundos
+  t <- seq(from=0, to=tf, by=dt)
+  
+  df <- data.frame(time=t, yl, yr)
+  
+  # a função basename extrai o nome do arquivo apenas
+  pp <- dygraph(df, main= basename(fname))
+  
+  return(pp)
+}
+
+#Aplica uma função a uma lista para plotar os gráficos:
+dy_graph_1 <- list(lapply(fileNames1, plotWAV))  # end list
+htmltools::browsable(htmltools::tagList(dy_graph_1))
+```
+
+## Autocorrelação
+
+A partir da função acf, plota-se um gráfico em que possui o sinal yr e a largura máxima do eixo x de 1000. Esses dados permitem a análise da periodicidade do sinal de aúdio número um.
+
+```{r}
+autocorrelacao <- function(fname){
+  
+  originalSound <- readWave(fname)
+  fs = originalSound@samp.rate # sampling frequency in Hz
+  dt = 1/fs #resolution time in seconds
+  
+  yl <- originalSound@left
+  yr <- originalSound@right
+  
+  tf <- (length(yl)-1)*dt # tempo final em segundos
+  t <- seq(from=0, to=tf, by=dt)
+  
+  df <- data.frame(time=t, yl, yr)
+  
+  return(acf(yr,lag.max = 1000, plot = TRUE))
+}
+
+#Áudio número 1
+autocorrelacao(fileNames1[[1]])
+```
+
+## Estacionaridade 
+
+Com a função acf, é gerado um gráfico com o sinal yr e, com isso,  é possível analisar a estacionariedade do sinal de aúdio número um.
+
+```{r}
+estacionario <- function(fname){
+  
+  originalSound <- readWave(fname)
+  fs = originalSound@samp.rate # sampling frequency in Hz
+  dt = 1/fs #resolution time in seconds
+  
+  yl <- originalSound@left
+  yr <- originalSound@right
+  
+  tf <- (length(yl)-1)*dt # tempo final em segundos
+  t <- seq(from=0, to=tf, by=dt)
+  
+  df <- data.frame(time=t, yl, yr)
+  
+  return(acf(yr, plot = TRUE))
+}
+
+#Áudio número 1
+estacionario(fileNames1[[1]])
+```

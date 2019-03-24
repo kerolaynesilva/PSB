@@ -1,0 +1,124 @@
+---
+title: "Acessando arquivos"
+output:
+  prettydoc::html_pretty:
+    # theme: architect
+    theme: leonids
+    
+---
+
+
+
+> Sumário 
+
+* Instalação dos Pacotes
+* Utilizando Bibliotecas 
+* Definição do Diretório de Trabalho
+* Arquivos do Tipo xlsx, txt, csv e EDF
+    + Abrindo Arquivo a partir do Excel (formato .xlsx)
+    + Lendo o Arquivo Texto na Forma de uma Tabela (formato .txt)
+    + Lendo o Arquivo CSV (com separador em ;)
+    + Lendo o Arquivo EDF
+* Gráficos Estáticos
+    + Outras Formas de Gerar Gráficos Estáticos
+    + Nome nos Eixos do Gráfico
+* Gráficos Dinâmicos
+
+## Instalação dos Pacotes
+
+Antes de instalar os pacotes execute o RStudio como Administrador no Windows.
+
+```{r message = FALSE, warning=FALSE}
+# install.packages("openxlsx")
+# install.packages("ggplot2")
+# install.packages("edfReader")
+```
+
+## Utilizando Bibliotecas 
+
+A função library() carrega a biblioteca definada. Nesta situação, será utilizada a openxlsx que acessa arquivos de uma planilha excel, a ggplot2 plota gráficos estáticos, a edfReader carrega arquivos do tipo EDF e a dygraphs plota gráficos iterativos.  
+
+```{r message = FALSE, warning=FALSE}
+library(openxlsx)
+library(ggplot2)
+library(edfReader)
+library(dygraphs)
+```
+
+
+## Definição do Diretório de Trabalho
+
+A função getwd() mostra o diretório em se está trabalhando e a setwd recebe o diretório especificado anteriormente.
+
+```{r}
+getwd()
+setwd("C:/Users/samsung/Documents/Universidade/PET EngBiomédica/Workshop PET/Programas/")
+```
+
+## Arquivos do Tipo xlsx, txt, CSV e EDF
+
+No primeiro caso, uma planilha de excel é lida e salva na variável df1, no segundo, um arquivo texto, .txt, é arquivado na df2, em df3, um arquivo do tipo CSV e, no último, um arquivo EDF é mantido em df4. 
+
+```{r}
+# Abrindo arquivo a partir do Excel (formato .xlsx)
+df1 <- read.xlsx("G2.xlsx", sheet = 1, skipEmptyRows = FALSE)
+
+# Lendo o arquivo texto na forma de uma tabela (formato .txt)
+df2 <- read.table("G2.txt",header = TRUE, sep =  "\t", skip = 1)
+
+# Lendo o arquivo csv (com separador em ;)
+df3 <- read.csv2("G2.csv",header = TRUE, sep =  ";", skip = 1)
+
+# Lendo o arquivo EDF
+CHdr <- readEdfHeader("G2.edf") # leitura do cabeçalho
+Signals <- readEdfSignals(CHdr) # leitura dos sinais
+
+tt <- seq(from=0, to=length(Signals[[1]][[19]])-1, by=1)
+
+df4 <- data.frame(time= tt, G1.X=Signals[[1]][[19]])
+
+```
+
+### Outras Formas de Gerar Gráficos Estáticos
+
+No bloco abaixo, será gerado um gráfico no formato rápido com pontos e linha. A função qplot() precisa receber um vetor para o eixo x, um vetor para o eixo y e o nome da várivavel que contém o dado. Além de definir o tipo de visualização de gráfico que deseja, se é pontos, linha ou ponto e linha.
+
+```{r}
+qplot(df1$`[Time]`, df1$`[G1.X]`, data = df1) 
+qplot(df1$`[Time]`, df1$`[G1.X]`, geom=c("point", "line"))
+```
+
+Neste outro caso, gráficos estásticos mais versáteis e simples são plotados. A função ggplot() define o nome do dado a ser plotado, em aes(), os eixos do sinal é definido e é somado a função geom_line() ou geom_point() que definem a visualização dos pontos de dados no gráfico.
+
+```{r}
+ggplot(data=df2, aes(x=df2$X.Time., y=df2$X.G1.X.)) + geom_line()
+ggplot(data=df2, aes(x=df2$X.Time., y=df2$X.G1.X.)) + geom_line() + geom_point()
+```
+
+### Nome nos Eixos do Gráfico
+
+Com a função labs(), os eixos x e y recebem os seus respectivos nomes.
+
+```{r}
+p3 <- qplot(df3$X.Time., df3$X.G1.X., geom=c("point", "line"))
+p3 <- p3 + labs(x = "tempo (s)", y="amplitude")
+print(p3)
+```
+
+## Gráficos dinâmicos
+
+Com a função dygraph(), é possível plotar gráficos nos quais pode ampliar, percorrer e traça delimitações na sinal trabalhado. Ela recebe o dataframe que se deseja plotar e com a adição do dyRangeSelector se consegue percorrer o sinal. 
+
+```{r}
+dygraph(df4) %>% dyRangeSelector()
+
+```
+
+Existem formas de colocar limites e demarcar eventos através da função dyEvent(), para mais detalhes acesse: https://rstudio.github.io/dygraphs/. O símbolo %>% significa adição de função no gráfico do tipo dygraph.  
+
+```{r}
+dygraph(df4) %>% dyRangeSelector() %>% dyEvent(215, "BEGIN", labelLoc = "top") %>% 
+                                       dyEvent(324, "END", labelLoc = "bottom")
+
+```
+

@@ -1,0 +1,216 @@
+---
+title: "Dados Estatísticos"
+output:
+  prettydoc::html_pretty:
+    # theme: architect
+    theme: leonids
+    
+---
+
+> Sumário 
+
+* Instalação dos Pacotes e utilização das Bibliotecas
+* Definição do Diretório de Trabalho 
+* Definição de Parâmetros Estatísticos
+    + Gráfico com Todos os Sinais EMG
+    + Gráfico com Sinal do Músculo Anterior
+    + Gráfico com Sinal do Músculo Posterior
+    + Gráfico com Sinal do Músculo Posterior Outra Forma de Visualização
+* Delimitando Manualmente os Bursts do Sinal EMG do Músculo Posterior
+* Boxplot do Sinal EMG do Músculo Posterior
+* Histogramas
+
+## Instalação dos Pacotes e utilização das Bibliotecas
+
+```{r message = FALSE, warning=FALSE}
+# install.packages("openxlsx")
+# #install.packages("ggplot2")
+# install.packages("edfReader")
+# install.packages("plotly") #https://plot.ly/r/
+# install.packages("gridExtra")
+# install.packages("dygraphs")
+# install.packages("xts")
+# install.packages("tidyquant")
+# install.packages("spgs")
+# install.packages("moments")
+
+# Uso de bibliotecas ------------------------------------------------------
+library(openxlsx) #carrega a biblioteca "openxlsx"
+library(edfReader) # Biblioteca para leitura de arquivos EDF
+library(plotly) #Biblioteca para plotar gráficos estáticos, mais informações: https://plot.ly/r/
+library(gridExtra)
+library(dygraphs) #Biblioteca para plotar gráficos dinâmicos
+library(xts)
+library(ggplot2)
+library(tidyquant)
+library(spgs)
+library(moments)
+```
+
+
+## Definição do Diretório de Trabalho
+
+```{r}
+getwd()
+setwd("C:/Users/samsung/Documents/Universidade/PET EngBiomédica/Workshop PET/Programas/")
+```
+
+
+## Definição de Parâmetros Estatísticos
+
+Em df1, é lido e salvo o arquivo .txt em forma de tabela. Os nomes das colunas dessa tabela é modificada em names(df1), é criado um vetor que preencherá a primeira linha da tabela com os seguintes nomes: AccX, AccY, MuscAnterior e MuscPosterior.
+
+```{r}
+df1 <- read.table("a1.txt",header = FALSE, sep =  " ", skip = 6)
+
+# alteração do nome das variáveis do dataframe
+names(df1) <- c("AccX", "AccY", "MuscAnterior","MuscPosterior")
+```
+
+Neste bloco, é definido a frequência de amostragem que é obtida a partir de análise da tabela com os dados do sinal. Em seguida, o intervalo entre as amostras é calculado e com esses valores é definido o vetor tempo. Para isso, utiliza-se a seq() que gera um vetor de sequência de números começando de 0 à dt*(length(df1$AccX)-1), com intervalo entre as amostras igual a dt, mais informações em: https://www.datamentor.io/r-programming/vector/. Depois, é incluido o vetor tempo ao dataframe df1 e plotado os respectivos dados desejados.
+
+```{r}
+fs <- 500 #Hz
+dt <- 1/fs # Intervalo entre as amostras em segundos
+
+# Definição do vetor de tempo (em segundos)
+t <- seq(from=0, to = dt*(length(df1$AccX)-1), by=dt) 
+
+# incluindo o vetor de tempo no dataframe
+df1 <- cbind(time=t,df1) 
+```
+
+### Gráfico com Todos os Sinais EMG
+
+```{r}
+dygraph(df1) %>% dyRangeSelector()
+```
+
+### Gráfico com Sinal do Músculo Anterior
+```{r}
+dygraph(df1[c("time","MuscAnterior")]) %>% dyRangeSelector()
+```
+
+#### Gráfico com Sinal do Músculo Posterior
+
+```{r}
+dygraph(df1[c("time","MuscPosterior")]) %>% dyRangeSelector()
+```
+
+### Gráfico com Sinal do Músculo Posterior Outra Forma de Visualização
+
+```{r}
+dygraph(data.frame(time=1:length(t), MuscPosterior=df1$MuscPosterior)) %>% dyRangeSelector()
+```
+
+## Delimitando Manualmente os Bursts do Sinal EMG do Músculo Posterior 
+
+Pimeiro, cria-se uma matriz 30X3 na qual terá como colunas, respectivamente, o número, o ínicio e o fim dos bursts. Com colnames(A), é definido o nome de cada uma dessas colunas.
+
+```{r}
+A = matrix(
+  
+  c(1, 2420, 2765,
+    2, 1520, 1963,
+    3, 3284, 3654,
+    4, 4083, 4425,
+    5, 4883, 5249,
+    6, 5779, 6123,
+    7, 6507, 6910,
+    8, 7294, 7680,
+    9, 8099, 8445,
+    10, 8891, 9308,
+    11, 9670, 10089,
+    12, 10528, 10906,
+    13, 11296, 11671,
+    14, 12088, 12470,
+    15, 12849, 13233,
+    16, 13623, 14011,
+    17, 14397, 14808,
+    18, 15177, 15556,
+    19, 15904, 16332,
+    20, 16768, 17028,
+    21, 17467, 17867,
+    22, 18220, 18608,
+    23, 19012, 19395,
+    24, 19818, 20206,
+    25, 20590, 20996,
+    26, 21369, 21704,
+    27, 22064, 22512,
+    28, 22812, 23189,
+    29, 23641, 23969,
+    30, 24303, 24704),
+  
+  nrow=30,
+  ncol=3, 
+  byrow = TRUE)
+
+
+colnames(A) = c("Burst", "Inicio", "Fim")
+```
+
+Cria-se um dataframe para armazenar o tempo da matriz A e, em seguida, adiciona-se colunas vazias para armazenar os dados estatísiticos de: média, mediana, quartis, percentis, amplitude, amplitude interquartil, variância, desvio padrão, coeficente de assimetria e curtose. 
+
+```{r}
+dfr <- data.frame(time= A[,1])
+dfr$media <- NA
+dfr$mediana <- NA
+dfr$quartil_25 <- NA
+dfr$quartil_50 <- NA
+dfr$quartil_75 <- NA
+dfr$percentil_32 <- NA
+dfr$percentil_57 <- NA
+dfr$percentil_98 <- NA
+dfr$amplitude <- NA
+dfr$amplitude_interquartil <- NA
+dfr$variancia <- NA
+dfr$desvio_padrao <- NA
+dfr$coeficiente_de_assimetria <- NA
+dfr$curtose <- NA
+```
+
+Agora, cria-se um for para para percorrer cada uma das posições vazias desse dataframe, preenchendo com os parâmetros definidos anteriormente.  
+
+```{r}
+for(i in 1:nrow(A)) {
+  
+  dfr$media[i] <- mean(df1$MuscPosterior[c(A[i,2]:A[i,3])])
+  dfr$mediana[i] <- median(df1$MuscPosterior[c(A[i,2]:A[i,3])])
+  
+  dfr$quartil_25[i] <- quantile(df1$MuscPosterior[c(A[i,2]:A[i,3])], c(.25))
+  dfr$quartil_50[i] <- quantile(df1$MuscPosterior[c(A[i,2]:A[i,3])], c(.50))
+  dfr$quartil_75[i] <- quantile(df1$MuscPosterior[c(A[i,2]:A[i,3])], c(.75))
+  
+  dfr$percentil_32[i] <- quantile(df1$MuscPosterior[c(A[i,2]:A[i,3])], c(.32))
+  dfr$percentil_57[i] <- quantile(df1$MuscPosterior[c(A[i,2]:A[i,3])], c(.57))
+  dfr$percentil_98[i] <- quantile(df1$MuscPosterior[c(A[i,2]:A[i,3])], c(.98))
+  
+  dfr$amplitude[i] <- max(df1$MuscPosterior[c(A[i,2]:A[i,3])])- min(df1$MuscPosterior[c(A[i,2]:A[i,3])])
+  dfr$amplitude_interquartil[i] <- IQR(df1$MuscPosterior[c(A[i,2]:A[i,3])])
+  
+  dfr$variancia[i] <- var(df1$MuscPosterior[c(A[i,2]:A[i,3])])
+  dfr$desvio_padrao[i] <- sd(df1$MuscPosterior[c(A[i,2]:A[i,3])])
+  dfr$coeficiente_de_assimetria[i] <- skewness(df1$MuscPosterior[c(A[i,2]:A[i,3])])
+  dfr$curtose[i] <- kurtosis(df1$MuscPosterior[c(A[i,2]:A[i,3])])
+}
+```
+
+## Boxplot do Sinal EMG do Músculo Posterior 
+
+A seguir é plotado um boxplot do sinal do músculo posterior para análise da concentração de pontos. Para mais informações de plotagem de boxplots, acesse: https://www.r-graph-gallery.com/boxplot/
+
+```{r}
+boxplot(df1$'MuscPosterior', xlab="Músculo Posterior", horizontal=TRUE)
+```
+
+## Histogramas
+
+Abaixo é plotado o histograma da média dos bursts do Músculo Posterior, na função hist() é definido qual dado será analisado (dfr$media), o título do histograma, o nome do eixo x (Média), a cor das colunas em col e a frequência dos dados.
+
+```{r}
+hist(dfr$media, main="Histograma do Músculo Posterior",
+xlab="Média",
+col="darkmagenta",
+freq=TRUE)
+```
+

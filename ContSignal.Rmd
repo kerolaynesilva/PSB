@@ -1,0 +1,99 @@
+---
+title: "Sinal Sintético"
+output:
+  prettydoc::html_pretty:
+    # theme: architect
+    theme: leonids
+---
+
+> Sumário 
+
+* Sinal Contínuo Sintético Senoidal 
+* Sinal Eletromiográfico Sintético
+* Descontinuidades 
+
+## Sinal Contínuo Sintético Senoidal
+
+Cria-se um tempo discreto, n, onde esse sinal ocorrerá, define-se a frequência digital em omega e a amplitude do sinal desejado. Aplica-se esses parâmetros à fórmula que define uma senoide, $A * sin(omega * n)$. Logo em seguida, salva esses dados em um dataframe e plota-o por meio da dygraph().
+
+```{r message = FALSE, warning=FALSE}
+library(dygraphs)
+```
+```{r}
+n <- 0:31 # tempo discreto n
+omega <- 0.25 * pi # frequência digital
+A <- 2 # amplitude
+xn <- A * sin(omega * n) # fórmula da senóide
+
+df <- data.frame(time = n, xn)
+dygraph(df)%>%
+  dyOptions(drawPoints = TRUE, pointSize = 3) %>%
+  dyAxis(name='x', label= "Tempo discreto, n")%>%
+  dyAxis(name='y', label= "Amplitude")
+```
+
+## Sinal Eletromiográfico Sintético
+
+Define-se uma frequência de amostragem, a resolução temporal e vetor tempo do dataframe. Calcula-se o valor do tempo final em tf que é obtido pelo acesso ao último elemento do vetor.
+
+```{r message = FALSE, warning=FALSE}
+library(tuneR)# biblioteca que contém conjunto de funções para gerar sinais básicos
+library(dygraphs)#biblioteca para plotagem de séries temporais (gráfico interativo)
+```
+```{r}
+Fs <- 300 # frequência de amostragem em Hz
+dt <- 1/Fs # resolução temporal
+t <- seq(from=0.0, to=10.0, by=dt) #vetor de tempo
+tf <- t[length(t)] # valor do tempo final
+```
+
+Adota-se uma frequência, freq1, para desenvolver uma onda quadrada (ysquare). A função square terá como parâmetros a freq1, a frequência de amostragem (Fs) e duração do sinal igual a $tf + dt$. Em seguida, esses dados são plotados por meio da dygraph().
+
+```{r}
+freq1 <- 10
+ysquare <- square(freq1, samp.rate = Fs, duration = tf+dt,xunit = "time")@left
+dygraph(data.frame(time=t, ysquare)) %>%dyRangeSelector()
+```
+
+Nesta parte, é criado um ruído com parâmetros semelhantes ao da onda quadrada produzida anteriormente.
+
+```{r}
+ynoise <- noise(kind="white", samp.rate = Fs, duration = tf+dt,xunit = "time")@left
+dygraph(data.frame(time=t, ynoise)) %>%dyRangeSelector()
+```
+
+Adota-se o ruído sendo adicionado aos trechos em que a onda quadrada é igual a $-1$. Com a which(), encontra-se essas posições do vetor ysquare e se cria um vetor vazio (NA) para armazenar esses trechos que coincidem no sinal de ruído.
+
+```{r}
+indx1 <- which(ysquare == -1.0) 
+y1 <- rep(NA,length(ynoise)) # iniciando um vetor com NA (not available)
+y1[indx1] <- ynoise[indx1] # 
+
+dygraph(data.frame(time=t, y1)) %>%dyRangeSelector()
+```
+
+Adota-se o ruído sendo adicionado aos trechos em que a onda quadrada é igual a $1$ e o amplifica 20 vezes. Com a which(), encontra-se essas posições do vetor ysquare e adiciona esses trechos no vetor y1.
+
+```{r}
+indx2 <- which(ysquare > -1.0) 
+y1[indx2] <- ynoise[indx2]*20
+
+dygraph(data.frame(time=t, y1), main="Sinal EMG sintético", xlab = "tempo (s)", ylab = "amplitude (mV)") %>%dyRangeSelector()
+```
+
+
+# Descontinuidades 
+
+Define-se o valor da amplitude da descontinuidade em d e o número de descontinuidades em Ndes. Ajusta-se a "semente" geradora de números aleatórios para que seja gerados números aleatórios iguais ao do exemplo, por isso, o número 42 é colocado na função set.seed. Em sample.int() são gerados números aleatórios a partir do tamanho da função trabalhada e do número de descontinuidades. Em seguida, inicializa-se um vetor vazio e se atribui o valor da amplitude das descontinuidades.
+
+```{r}
+d <- 1000 
+Ndes <- 10
+set.seed(42);
+indxDesc <- sample.int(length(y1),Ndes) # gerador de número aleatórios 
+
+y2 <- y1 # iniciando um vetor com NA (not available)
+y2[indxDesc] <- d # atribuindo o valor de descontinuidade
+dygraph(data.frame(time=t, y2)) %>%dyRangeSelector()
+```
+

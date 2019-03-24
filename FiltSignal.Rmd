@@ -1,0 +1,171 @@
+---
+title: "Filtrando Sinal Eletromiográfico"
+output:
+  prettydoc::html_pretty:
+    # theme: architect
+    theme: leonids
+---
+
+> Sumário 
+
+* Utilização das Bibliotecas e Definição do Diretório
+* Lendo o Arquivo Texto e Criando Vetor Tempo
+* Filtro do Tipo Butterworth
+    + Primeiro Filtro: Passa Alta 
+    + Segundo Filtro: Rejeita Faixa
+    + Terceiro Filtro: Passa Baixa
+* Filtro do Tipo Chebyshev
+    
+
+
+## Utilização das Bibliotecas e Definição do Diretório
+
+```{r message = FALSE, warning=FALSE}
+library(dygraphs)#biblioteca para plotagem de séries temporais (gráfico interativo)
+library(signal)
+library(ggplot2)
+library(REdaS)
+```
+```{r}
+getwd() # get current working directory
+setwd("C:/Users/samsung/Documents/Universidade/PET EngBiomédica/Workshop PET/Programas/")
+```
+
+## Lendo o Arquivo Texto e Criando Vetor Tempo 
+
+```{r}
+
+df1 <- read.table("a1.txt",header = TRUE, sep =  " ", skip = 6)
+# alteração do nome das variáveis do dataframe
+names(df1) <- c("AccX", "AccY", "MuscAnterior","MuscPosterior")
+
+#criando o vetor de tempo
+fs <- 500 #Hz
+dt <- 1/fs #Intervalo entre as amostras em segundos
+t <- seq(from=0, to = dt*(length(df1$AccX)-1), by=dt) #Vetor tempo
+df1 <- cbind(t, df1) 
+
+dfpost <- data.frame(time=df1$t, MuscPosterior=df1$MuscPosterior)
+dfant <- data.frame(time=df1$t, MuscAnterior=df1$MuscAnterior)
+```
+
+## Filtro do Tipo Butterworth
+
+Para filtrar um sinal EMG, é preciso projetar, três filtros, para contornar situações específicas que interferem na aquisição desse sinal. Nessa situação, será aplicado um filtro do tipo Butterworth e depois um Chebyshev para comparação dos resultados entre eles. Dessa forma, os três filtros projetados, são : um passa alta para atenuar as frequências abaixo de 0.2 Hz, um rejeita faixa para atenuar o 60 Hz proveniente da rede elétrica e um passa baixa para atenuar frequências abaixo de 2 HZ. 
+
+### Primeiro Filtro: Passa Alta 
+
+Precisa-se definir a frequência de amostragem que é representada por Fs, depois a ordem do filtro em nh, a frequência de corte em Fc_high, a frequência de Nyquist em Wh e os coeficientes do filtro em bt_high. A freqz() plota um gráfico com a resposta em frequência do filtro projetado.
+
+```{r}
+Fs <- 500 
+nh <- 3 # ordem do filtro
+Fc_high <- 0.2 # frequência de corte em Hz
+Wh <- Fc_high/(Fs/2)
+bt_high <- butter(nh, Wh, type = "high") 
+freqz(filt = bt_high, Fs = Fs)
+```
+
+Neste bloco, é realizada a filtragem do sinal EMG por meio da função filtfilt, nela são definidos o tipo de filtro e o dados a ser filtrado. Em seguida, são plotados os gráficos do músculo posterior e anterior filtrados pelo filtro passa alta.
+
+```{r}
+y_filt_high <- filtfilt(filt = bt_high, dfpost$MuscPosterior)
+y_filt_high2 <- filtfilt(filt = bt_high, dfant$MuscAnterior)
+
+dfplot1 <- data.frame(time = t, dfpost$MuscPosterior, yf = y_filt_high)
+dygraph(dfplot1)
+
+dfplot2 <- data.frame(time = t, dfant$MuscAnterior, yf = y_filt_high2)
+dygraph(dfplot2)
+```
+
+### Segundo Filtro: Rejeita Faixa
+
+Define-se a ordem do filtro em nr, a frequência de corte inferior em Fc_l e a superior em Fc_u, a frequência de Nyquist em Wrej e os coeficientes do filtro em bt_rej. A freqz() plota um gráfico com a resposta em frequência do filtro rejeita faixa projetado anteriormente.
+
+```{r}
+nr <- 4
+Fc_l <- 59 # frequência de corte inferior em Hz
+Fc_u <- 61 # frequência de corte superior em Hz
+Wrej <- c(Fc_l, Fc_u)/(Fs/2)
+bt_rej <- butter(nr, Wrej, type = "stop") 
+freqz(filt = bt_rej, Fs = Fs)
+```
+
+A filtragem do sinal EMG é feito pela função filtfilt, nela são definidos o tipo de filtro e o dados a ser filtrado. Em seguida, são plotados os gráficos do músculo posterior e anterior filtrados pelo filtro rejeita faixa. 
+
+```{r}
+y_filt_rej <- filtfilt(filt = bt_rej, dfplot1$yf)
+y_filt_rej2 <- filtfilt(filt = bt_rej, dfplot2$yf)
+
+dfplot3 <- data.frame(time = t, dfplot1$yf, yf = y_filt_rej)
+dygraph(dfplot3)
+
+dfplot4 <- data.frame(time = t, dfplot2$yf, yf = y_filt_rej2)
+dygraph(dfplot4)
+```
+
+Porém, antes de realizar a filtragem pela passa baixa é necessário retificar o sinal para evitar modificações no resultado.
+
+```{r}
+dfplot3 <- abs(dfplot3)
+dygraph(dfplot3)
+dfplot4 <- abs(dfplot4)
+dygraph(dfplot4)
+```
+
+### Terceiro Filtro: Passa Baixa
+
+```{r}
+nl <- 4 # ordem do filtro
+Fc_low <- 2 # frequência de corte em Hz
+Wl <- Fc_low/(Fs/2) #frequência de Nyquist
+bt_low <- butter(nl, Wl, type = "low") # cálculo dos coeficientes do fitro
+freqz(filt = bt_low, Fs = Fs)
+
+# fazendo a filtragem por meio do uso da função filtfilt
+y_filt_low <- filtfilt(filt = bt_low, dfplot3$yf)
+y_filt_low2 <- filtfilt(filt = bt_low, dfplot4$yf)
+
+dfplot5 <- data.frame(time = t, dfplot3$yf, yf = y_filt_low)
+dygraph(dfplot5)
+
+dfplot6 <- data.frame(time = t, dfplot4$yf, yf = y_filt_low2)
+dygraph(dfplot6)
+```
+
+Neste bloco, plota-se a detecção do envoltório realizado através dos passos anteriores.
+
+```{r}
+dygraph(data.frame(time=dfplot5$time, envoltorio=dfplot5$yf, df1$MuscPosterior))
+dygraph(data.frame(time=dfplot6$time, envoltorio=dfplot6$yf, dfant$MuscAnterior))
+dygraph(data.frame(time=dfplot6$time, envoltorio=dfplot6$yf, dfplot2$yf))
+```
+
+## Filtro do Tipo Chebyshev
+
+Da mesma forma que o Butterworth, o Chebyshev precisa definir a frequência de amostragem, a ordem, a frequência de corte, a frequência de Nyquist e os coeficientes do filtro, para realizar a devida filtragem do sinal trabalhado.
+
+```{r}
+# Primeiro Filtro: Passa alta
+Fs <- 500 # frequência de amostragem em Hz
+nc <- 3 # ordem do filtro
+Fc <- 0.2 # frequência de corte em Hz
+W <- Fc/(Fs/2) #frequência de Nyquist
+Rp <- 0.5
+
+cheb <- cheby1(nc, Rp, W, type = "high") # cálculo dos coeficientes do fitro
+freqz(filt = cheb, Fs = Fs)
+
+# fazendo a filtragem por meio do uso da função filtfilt
+y_filt_high_cheb <- filtfilt(filt = cheb, dfpost$MuscPosterior)
+y_filt_high_cheb2 <- filtfilt(filt = cheb, dfant$MuscAnterior)
+
+dfplot5 <- data.frame(time = t, dfpost$MuscPosterior, yf = y_filt_high_cheb)
+dygraph(dfplot5)
+
+dfplot6 <- data.frame(time = t, dfant$MuscAnterior, yf = y_filt_high_cheb2)
+dygraph(dfplot6)
+```
+
+
